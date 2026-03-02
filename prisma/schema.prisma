@@ -25,6 +25,7 @@ enum BookingStatus {
   ACCEPTED
   COMPLETED
   CANCELLED
+  REJECTED
 }
 
 model User {
@@ -38,6 +39,7 @@ model User {
 
   providerProfile ProviderProfile?
   bookings        Booking[]
+  notifications   Notification[]
 }
 
 model ProviderProfile {
@@ -45,37 +47,65 @@ model ProviderProfile {
   userId          String      @unique
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   serviceType     ServiceType
-  experienceYears Int
+  experienceYears Int         @default(0)
   description     String?
+  bio             String?
+  hourlyRate      Float?
+  city            String?
   latitude        Float?
   longitude       Float?
   isAvailable     Boolean     @default(true)
+  isOnline        Boolean     @default(false)
+  avgRating       Float       @default(0)
   createdAt       DateTime    @default(now())
 
-  bookings Booking[]
+  bookings       Booking[]
+  certifications Certification[]
+}
+
+model Certification {
+  id          String          @id @default(uuid())
+  providerId  String
+  provider    ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  name        String
+  issuingBody String?
+  yearObtained Int?
+  createdAt   DateTime        @default(now())
 }
 
 model Booking {
-  id               String          @id @default(uuid())
-  userId           String
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  providerId       String
-  provider         ProviderProfile @relation(fields: [providerId], references: [id])
-  issueDescription String
-  address          String?
-  finalPrice       Float?
-  status           BookingStatus   @default(PENDING)
-  createdAt        DateTime        @default(now())
-  completedAt      DateTime?
+  id                String        @id @default(uuid())
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId        String
+  provider          ProviderProfile @relation(fields: [providerId], references: [id])
+  issueDescription  String
+  address           String?
+  complaintPhotoUrl String?
+  budgetAmount      Float?
+  finalPrice        Float?
+  status            BookingStatus @default(PENDING)
+  createdAt         DateTime      @default(now())
+  completedAt       DateTime?
 
   reviews Review[]
 }
 
 model Review {
   id        String   @id @default(uuid())
-  bookingId String
+  bookingId String   @unique
   booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   rating    Int
   comment   String?
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 }
