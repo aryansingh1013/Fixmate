@@ -28,17 +28,22 @@ export const register = async (req: Request, res: Response) => {
         }
     });
 
-    // If registering as a provider, create their empty profile
+    // If registering as a provider, create their profile with chosen service type
     if (userRole === 'PROVIDER') {
-        // We default to PLUMBER and 1 exp just to fill constraints, can be updated later
+        const validTypes = ['PLUMBER', 'ELECTRICIAN', 'CARPENTER', 'AC_REPAIR'];
+        const chosenType = typeof req.body.serviceType === 'string' &&
+            validTypes.includes(req.body.serviceType.toUpperCase())
+            ? req.body.serviceType.toUpperCase()
+            : 'PLUMBER';
         await prisma.providerProfile.create({
             data: {
                 userId: user.id,
-                serviceType: 'PLUMBER',
+                serviceType: chosenType as any,
                 experienceYears: 1,
             }
         });
     }
+
 
     const token = jwt.sign({ userId: user.id, email: user.email, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
 
