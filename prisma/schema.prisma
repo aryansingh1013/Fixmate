@@ -47,6 +47,7 @@ model ProviderProfile {
   userId          String      @unique
   user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   serviceType     ServiceType
+  customServiceType String?    // free-text when serviceType is AC_REPAIR (used as 'Other')
   experienceYears Int         @default(0)
   description     String?
   bio             String?

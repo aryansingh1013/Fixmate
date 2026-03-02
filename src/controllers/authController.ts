@@ -35,10 +35,15 @@ export const register = async (req: Request, res: Response) => {
             validTypes.includes(req.body.serviceType.toUpperCase())
             ? req.body.serviceType.toUpperCase()
             : 'PLUMBER';
+        // customServiceType: free-text description used when chosenType === 'AC_REPAIR' (shown as 'Other' in UI)
+        const customServiceType = chosenType === 'AC_REPAIR' && typeof req.body.customServiceType === 'string'
+            ? req.body.customServiceType.trim()
+            : null;
         await prisma.providerProfile.create({
             data: {
                 userId: user.id,
                 serviceType: chosenType as any,
+                customServiceType,
                 experienceYears: 1,
             }
         });
