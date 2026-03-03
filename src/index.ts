@@ -9,6 +9,7 @@ import diagnosticsRoutes from './routes/diagnosticsRoutes';
 import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import reviewRoutes from './routes/reviewRoutes';
+import complaintRoutes from './routes/complaintRoutes';
 import { globalErrorHandler } from './middleware/error';
 import { createServer } from 'http';
 import { initSocket } from './socket';
@@ -38,6 +39,7 @@ app.use('/api/diagnostics', diagnosticsRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/complaints', complaintRoutes);
 
 // Global Error Handler (must be after all routes)
 app.use(globalErrorHandler);

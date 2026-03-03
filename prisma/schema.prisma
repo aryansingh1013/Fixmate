@@ -40,6 +40,7 @@ model User {
   providerProfile ProviderProfile?
   bookings        Booking[]
   notifications   Notification[]
+  complaints      Complaint[]
 }
 
 model ProviderProfile {
@@ -75,21 +76,24 @@ model Certification {
 }
 
 model Booking {
-  id                String        @id @default(uuid())
-  userId            String
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  providerId        String
-  provider          ProviderProfile @relation(fields: [providerId], references: [id])
-  issueDescription  String
-  address           String?
-  complaintPhotoUrl String?
-  budgetAmount      Float?
-  finalPrice        Float?
-  status            BookingStatus @default(PENDING)
-  createdAt         DateTime      @default(now())
-  completedAt       DateTime?
+  id                 String        @id @default(uuid())
+  userId             String
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId         String
+  provider           ProviderProfile @relation(fields: [providerId], references: [id])
+  issueDescription   String
+  address            String?
+  complaintPhotoUrl  String?
+  budgetAmount       Float?
+  finalPrice         Float?
+  status             BookingStatus @default(PENDING)
+  createdAt          DateTime      @default(now())
+  completedAt        DateTime?
+  cancellationReason String?
+  cancelledBy        String?       // "USER" | "PROVIDER"
 
-  reviews Review[]
+  reviews    Review[]
+  complaints Complaint[]
 }
 
 model Review {
@@ -99,6 +103,17 @@ model Review {
   rating    Int
   comment   String?
   createdAt DateTime @default(now())
+}
+
+model Complaint {
+  id          String   @id @default(uuid())
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  description String
+  status      String   @default("OPEN")  // "OPEN" | "RESOLVED"
+  createdAt   DateTime @default(now())
 }
 
 model Notification {

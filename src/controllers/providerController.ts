@@ -1,8 +1,7 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import prisma from '../prisma';
 import { sendSuccess, sendError } from '../utils/response';
 import { AuthRequest } from '../middleware/auth';
-import { ServiceType } from '@prisma/client';
 
 // ─── Haversine distance (km) ──────────────────────────────────────────────────
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -16,18 +15,21 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ─── GET /providers?service=PLUMBER&lat=28.6&lng=77.2&radius=20 ──────────────
+// ─── GET /providers?service=PLUMBER&lat=28.6&lng=77.2&radius=20&showAll=true ──
 export const getProviders = async (req: Request, res: Response) => {
-    const { service, lat, lng, radius } = req.query;
+    const { service, lat, lng, radius, showAll } = (req as any).query;
     const userLat = lat ? parseFloat(lat as string) : null;
     const userLng = lng ? parseFloat(lng as string) : null;
     const radiusKm = radius ? parseFloat(radius as string) : 20;
 
-    const whereClause: any = { isOnline: true };
+    // Default: online only. showAll=true → include offline providers
+    const whereClause: any = showAll === 'true' ? {} : { isOnline: true };
+
     if (typeof service === 'string') {
+        const { ServiceType } = await import('@prisma/client');
         const enumService = service.toUpperCase().replace(/ /g, '_');
-        if (Object.values(ServiceType).includes(enumService as ServiceType)) {
-            whereClause.serviceType = enumService as ServiceType;
+        if (Object.values(ServiceType).includes(enumService as any)) {
+            whereClause.serviceType = enumService;
         }
     }
 
@@ -42,7 +44,6 @@ export const getProviders = async (req: Request, res: Response) => {
         }
     });
 
-    // Filter by distance + compute live stats
     const mapped = providers
         .map(p => {
             let distanceKm: number | null = null;
@@ -50,11 +51,10 @@ export const getProviders = async (req: Request, res: Response) => {
                 distanceKm = haversineKm(userLat, userLng, p.latitude, p.longitude);
             }
 
-            // Compute real avgRating from reviews
             const allReviews = p.bookings.flatMap(b => b.reviews);
             const avgRating = allReviews.length > 0
                 ? allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length
-                : 0;
+                : p.avgRating; // fall back to stored value
 
             return {
                 id: p.id,
@@ -67,6 +67,7 @@ export const getProviders = async (req: Request, res: Response) => {
                 hourlyRate: p.hourlyRate ?? null,
                 city: p.city ?? null,
                 isOnline: p.isOnline,
+                isAvailable: p.isAvailable,
                 avgRating: Math.round(avgRating * 10) / 10,
                 reviewCount: allReviews.length,
                 completedJobs: p.bookings.length,
@@ -75,11 +76,10 @@ export const getProviders = async (req: Request, res: Response) => {
             };
         })
         .filter(p => {
-            // If user supplied coords, filter by radius
             if (userLat !== null && userLng !== null && p.distanceKm !== null) {
                 return p.distanceKm <= radiusKm;
             }
-            return true; // No coords → show all online
+            return true;
         })
         .sort((a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999));
 
@@ -87,7 +87,7 @@ export const getProviders = async (req: Request, res: Response) => {
 };
 
 // ─── GET /providers/:id/public ────────────────────────────────────────────────
-export const getPublicProviderProfile = async (req: Request, res: Response) => {
+export const getPublicProviderProfile = async (req: any, res: Response) => {
     const { id } = req.params;
 
     const provider = await prisma.providerProfile.findUnique({
@@ -119,7 +119,7 @@ export const getPublicProviderProfile = async (req: Request, res: Response) => {
     );
     const avgRating = allReviews.length > 0
         ? allReviews.reduce((s, r) => s + r.rating, 0) / allReviews.length
-        : 0;
+        : provider.avgRating;
 
     return sendSuccess(res, 'Public provider profile', {
         id: provider.id,
@@ -131,6 +131,7 @@ export const getPublicProviderProfile = async (req: Request, res: Response) => {
         hourlyRate: provider.hourlyRate ?? null,
         city: provider.city ?? null,
         isOnline: provider.isOnline,
+        isAvailable: provider.isAvailable,
         avgRating: Math.round(avgRating * 10) / 10,
         reviewCount: allReviews.length,
         completedJobs: provider.bookings.length,
@@ -140,7 +141,7 @@ export const getPublicProviderProfile = async (req: Request, res: Response) => {
 };
 
 // ─── GET /providers/:id ───────────────────────────────────────────────────────
-export const getProviderById = async (req: Request, res: Response) => {
+export const getProviderById = async (req: any, res: Response) => {
     const { id } = req.params;
     const provider = await prisma.providerProfile.findUnique({
         where: { id },
@@ -169,7 +170,7 @@ export const updateProviderStatus = async (req: AuthRequest, res: Response) => {
         data
     });
 
-    return sendSuccess(res, 'Status updated', { isOnline: updated.isOnline });
+    return sendSuccess(res, 'Status updated', { isOnline: updated.isOnline, isAvailable: updated.isAvailable });
 };
 
 // ─── GET /providers/me ────────────────────────────────────────────────────────
@@ -198,18 +199,30 @@ export const getProviderStats = async (req: AuthRequest, res: Response) => {
     });
     const avgRating = reviews.length > 0
         ? reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
-        : 0;
+        : provider.avgRating;
+
+    const complaintCount = await prisma.complaint.count({
+        where: { booking: { providerId: provider.id } }
+    });
+    const openComplaints = await prisma.complaint.count({
+        where: { booking: { providerId: provider.id }, status: 'OPEN' }
+    });
 
     return sendSuccess(res, 'Provider stats', {
         totalJobs: bookings.length,
         activeJobs: bookings.filter(b => b.status === 'PENDING' || b.status === 'ACCEPTED').length,
         completedJobs: completedBookings.length,
         cancelledJobs: bookings.filter(b => b.status === 'CANCELLED').length,
+        rejectedJobs: bookings.filter(b => b.status === 'REJECTED').length,
         totalEarnings,
-        trustScore: Math.round(avgRating * 10) / 10,
+        avgRating: Math.round(avgRating * 10) / 10,
+        reviewCount: reviews.length,
+        complaintCount,
+        openComplaints,
         experienceYears: provider.experienceYears,
         hourlyRate: provider.hourlyRate,
         isOnline: provider.isOnline,
+        isAvailable: provider.isAvailable,
     });
 };
 
