@@ -10,6 +10,7 @@ import userRoutes from './routes/userRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import reviewRoutes from './routes/reviewRoutes';
 import complaintRoutes from './routes/complaintRoutes';
+import versionRoutes from './routes/versionRoutes';
 import { globalErrorHandler } from './middleware/error';
 import { createServer } from 'http';
 import { initSocket } from './socket';
@@ -40,6 +41,7 @@ app.use('/api/user', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/complaints', complaintRoutes);
+app.use('/api/version', versionRoutes); // public — no auth
 
 // Global Error Handler (must be after all routes)
 app.use(globalErrorHandler);
