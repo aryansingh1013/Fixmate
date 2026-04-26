@@ -5,9 +5,9 @@ import { sendSuccess } from '../utils/response';
 // Update these two values every time you cut a new release:
 //   1. Bump APP_VERSION (matches pubspec.yaml version: X.Y.Z)
 //   2. Update APK_URL to point to the new GitHub Release asset
-const APP_VERSION = '1.0.3';
+const APP_VERSION = '1.0.4';
 const APK_URL =
-    'https://github.com/aryansingh1013/Fixmate/releases/download/v1.0.3/fixmate.apk';
+    'https://github.com/aryansingh1013/Fixmate/releases/download/v1.0.4/fixmate.apk';
 
 // ─── GET /api/version ─────────────────────────────────────────────────────────
 export const getVersion = (_req: Request, res: Response) => {
